@@ -201,7 +201,8 @@ pub(crate) fn create(
                     )
                     .height(Pixels(12.0))
                     .width(Percentage(90.0))
-                    .background_color(METER_BG_COLOR);
+                    .background_color(METER_BG_COLOR)
+                    .color(SECONDARY_COLOR);
                 })
                 .height(Pixels(48.0))
                 .child_left(Pixels(15.0))

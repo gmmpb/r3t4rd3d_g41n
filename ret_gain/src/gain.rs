@@ -9,7 +9,7 @@ use crate::fractal::FractalMagic;
 use crate::chaos::ChaosAttractor;
 
 /// The time it takes for the peak meter to decay by 12 dB after switching to complete silence.
-const PEAK_METER_DECAY_MS: f64 = 150.0;
+const PEAK_METER_DECAY_MS: f64 = 300.0; // Slower decay for a simpler meter
 
 /// This is mostly identical to the gain example, minus some fluff, and with a GUI.
 pub struct Gain {
@@ -165,11 +165,8 @@ impl Plugin for Gain {
         buffer_config: &BufferConfig,
         _context: &mut impl InitContext<Self>,
     ) -> bool {
-        // After `PEAK_METER_DECAY_MS` milliseconds of pure silence, the peak meter's value should
-        // have dropped by 12 dB
-        self.peak_meter_decay_weight = 0.25f64
-            .powf((buffer_config.sample_rate as f64 * PEAK_METER_DECAY_MS / 1000.0).recip())
-            as f32;
+        // Much faster decay for the meter - 0.5 factor for quicker fallback
+        self.peak_meter_decay_weight = 0.5;
 
         true
     }
@@ -184,10 +181,10 @@ impl Plugin for Gain {
         self.fractal_magic.set_sample_rate(context.transport().sample_rate as f32);
         self.chaos_attractor.set_sample_rate(context.transport().sample_rate as f32);
         
+        // Very simple peak detection
+        let mut max_peak: f32 = 0.0;
+        
         for channel_samples in buffer.iter_samples() {
-            let mut amplitude = 0.0;
-            let num_samples = channel_samples.len();
-
             // Get the smoothed parameter values
             let gain = self.params.gain.smoothed.next();
             let drive = self.params.drive.smoothed.next();
@@ -200,39 +197,31 @@ impl Plugin for Gain {
             self.chaos_attractor = ChaosAttractor::new(chaos);
             
             for sample in channel_samples {
-                // Apply effects in sequence:
-                
-                // 1. First apply the distortion
+                // Apply effects in sequence
                 *sample = self.distortion.process(*sample);
-                
-                // 2. Then apply the fractal magic effect
                 *sample = self.fractal_magic.process(*sample);
-                
-                // 3. Then apply the chaos attractor effect
                 *sample = self.chaos_attractor.process(*sample);
-                
-                // 4. Finally apply the gain
                 *sample *= gain;
                 
-                amplitude += *sample;
-            }
-
-            // To save resources, a plugin can (and probably should!) only perform expensive
-            // calculations that are only displayed on the GUI while the GUI is open
-            if self.params.editor_state.is_open() {
-                amplitude = (amplitude / num_samples as f32).abs();
-                let current_peak_meter = self.peak_meter.load(std::sync::atomic::Ordering::Relaxed);
-                let new_peak_meter = if amplitude > current_peak_meter {
-                    amplitude
-                } else {
-                    current_peak_meter * self.peak_meter_decay_weight
-                        + amplitude * (1.0 - self.peak_meter_decay_weight)
-                };
-
-                self.peak_meter
-                    .store(new_peak_meter, std::sync::atomic::Ordering::Relaxed)
+                // Simple absolute value peak detection
+                max_peak = max_peak.max(sample.abs());
             }
         }
+        
+        // Basic peak meter with simple decay - always apply decay
+        let current_meter = self.peak_meter.load(std::sync::atomic::Ordering::Relaxed);
+        let new_meter;
+        
+        if max_peak > current_meter {
+            // If louder, jump to new level
+            new_meter = max_peak;
+        } else {
+            // Always apply decay factor - this ensures the meter falls
+            new_meter = current_meter * self.peak_meter_decay_weight;
+        }
+        
+        // Store the new value
+        self.peak_meter.store(new_meter, std::sync::atomic::Ordering::Relaxed);
 
         ProcessStatus::Normal
     }
