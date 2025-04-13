@@ -91,7 +91,7 @@ impl Plugin for Gain {
     const URL: &'static str = "";
     const EMAIL: &'static str = "hello@weblabstudio.hu";
 
-    const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+    const VERSION: &'static str = env!("CARGO_PKG_VERSION");    
 
     const AUDIO_IO_LAYOUTS: &'static [AudioIOLayout] = &[
         AudioIOLayout {
