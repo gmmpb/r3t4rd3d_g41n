@@ -1,0 +1,6 @@
+
+[workspace]
+members = [
+  "aaa_mark_vst",
+  "xtask"
+]

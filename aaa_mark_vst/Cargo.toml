@@ -1,0 +1,14 @@
+[package]
+name = "aaa_mark_vst"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+# cdylib is for VST3 (?)
+# lib is for standalone
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+atomic_float = "1.1.0"
+nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git", features = ["assert_process_allocs", "standalone"] }
+nih_plug_vizia = { git = "https://github.com/robbert-vdh/nih-plug.git" }
