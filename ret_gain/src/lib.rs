@@ -3,11 +3,13 @@ mod editor;
 mod gain;
 mod distortion;
 mod fractal;
+mod chaos;
 
 // Re-export main types for use in main.rs and elsewhere
 pub use gain::Gain;
 pub use distortion::Distortion;
 pub use fractal::FractalMagic;
+pub use chaos::ChaosAttractor;
 
 // Export the plugin into the proper formats
 use nih_plug::prelude::*;

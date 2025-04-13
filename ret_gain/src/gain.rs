@@ -6,6 +6,7 @@ use std::sync::Arc;
 use crate::editor;
 use crate::distortion::Distortion;
 use crate::fractal::FractalMagic;
+use crate::chaos::ChaosAttractor;
 
 /// The time it takes for the peak meter to decay by 12 dB after switching to complete silence.
 const PEAK_METER_DECAY_MS: f64 = 150.0;
@@ -23,7 +24,8 @@ pub struct Gain {
     /// This is stored as voltage gain.
     peak_meter: Arc<AtomicF32>,
     distortion: Distortion, // The distortion processor
-    fractal_magic: FractalMagic, // Add the fractal magic processor
+    fractal_magic: FractalMagic, // The fractal magic processor
+    chaos_attractor: ChaosAttractor, // The chaos attractor processor
 }
 
 #[derive(Params)]
@@ -40,7 +42,10 @@ pub struct GainParams {
     pub drive: FloatParam, // The drive parameter
     
     #[id = "magic"]
-    pub magic: FloatParam, // Add the magic parameter
+    pub magic: FloatParam, // The magic parameter
+    
+    #[id = "chaos"]
+    pub chaos: FloatParam, // Add the chaos parameter
 }
 
 impl Default for Gain {
@@ -52,6 +57,7 @@ impl Default for Gain {
             peak_meter: Arc::new(AtomicF32::new(util::MINUS_INFINITY_DB)),
             distortion: Distortion::new(1.0), // Initialize with no distortion
             fractal_magic: FractalMagic::new(0.0), // Initialize with no fractal magic
+            chaos_attractor: ChaosAttractor::new(0.0), // Initialize with no chaos
         }
     }
 }
@@ -99,6 +105,18 @@ impl Default for GainParams {
             .with_smoother(SmoothingStyle::Logarithmic(50.0))
             .with_unit("")
             .with_value_to_string(formatters::v2s_f32_percentage(2)),
+            
+            chaos: FloatParam::new(
+                "Chaos",
+                0.0, // Default value (no effect)
+                FloatRange::Linear {
+                    min: 0.0,    // No effect
+                    max: 1.0,    // Full effect
+                },
+            )
+            .with_smoother(SmoothingStyle::Logarithmic(50.0))
+            .with_unit("%")
+            .with_value_to_string(formatters::v2s_f32_percentage(1)),
         }
     }
 }
@@ -162,8 +180,9 @@ impl Plugin for Gain {
         _aux: &mut AuxiliaryBuffers,
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        // Update the fractal magic sample rate
+        // Update the sample rates for time-based effects
         self.fractal_magic.set_sample_rate(context.transport().sample_rate as f32);
+        self.chaos_attractor.set_sample_rate(context.transport().sample_rate as f32);
         
         for channel_samples in buffer.iter_samples() {
             let mut amplitude = 0.0;
@@ -173,21 +192,26 @@ impl Plugin for Gain {
             let gain = self.params.gain.smoothed.next();
             let drive = self.params.drive.smoothed.next();
             let magic = self.params.magic.smoothed.next();
+            let chaos = self.params.chaos.smoothed.next();
             
-            // Update the distortion with the current drive value
+            // Update the effect processors with current parameter values
             self.distortion = Distortion::new(drive);
-            
-            // Update the fractal magic with the current magic amount
             self.fractal_magic = FractalMagic::new(magic);
+            self.chaos_attractor = ChaosAttractor::new(chaos);
             
             for sample in channel_samples {
-                // First apply the distortion
+                // Apply effects in sequence:
+                
+                // 1. First apply the distortion
                 *sample = self.distortion.process(*sample);
                 
-                // Then apply the fractal magic effect
+                // 2. Then apply the fractal magic effect
                 *sample = self.fractal_magic.process(*sample);
                 
-                // Finally apply the gain
+                // 3. Then apply the chaos attractor effect
+                *sample = self.chaos_attractor.process(*sample);
+                
+                // 4. Finally apply the gain
                 *sample *= gain;
                 
                 amplitude += *sample;

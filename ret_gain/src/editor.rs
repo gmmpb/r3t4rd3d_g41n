@@ -15,6 +15,7 @@ const TEXT_COLOR: Color = Color::rgb(0xE8, 0xE9, 0xF3); // Soft white
 const ACCENT_COLOR: Color = Color::rgb(0xFF, 0x1A, 0x8C); // Softened pink
 const SECONDARY_COLOR: Color = Color::rgb(0x0A, 0xD8, 0xE9); // Cyan for contrast
 const MAGIC_COLOR: Color = Color::rgb(0x9B, 0x59, 0xB6); // Purple for the magic slider
+const CHAOS_COLOR: Color = Color::rgb(0x1A, 0xBC, 0x9C); // Teal/turquoise for the chaos slider
 const KNOB_BG_COLOR: Color = Color::rgb(0x22, 0x22, 0x2A); // Slight contrast for controls
 const PANEL_BG: Color = Color::rgb(0x20, 0x20, 0x28); // Panel background
 
@@ -36,7 +37,7 @@ impl Model for Data {}
 
 // Adjusted window size to accommodate the new control
 pub(crate) fn default_state() -> Arc<ViziaState> {
-    ViziaState::new(|| (380, 280)) // Increase height for new slider
+    ViziaState::new(|| (380, 320)) // Increase height for the new chaos slider
 }
 
 pub(crate) fn create(
@@ -159,6 +160,31 @@ pub(crate) fn create(
                 .border_radius(Pixels(4.0))
                 .bottom(Pixels(8.0));
 
+                // CHAOS - new slider for Lorenz attractor
+                HStack::new(cx, |cx| {
+                    Label::new(cx, "CHAOS")
+                        .font_size(14.0)
+                        .color(CHAOS_COLOR)
+                        .width(Percentage(15.0))
+                        .child_space(Stretch(1.0));
+                        
+                    ParamSlider::new(cx, Data::params, |params| &params.chaos)
+                        .width(Percentage(75.0))
+                        .height(Pixels(20.0))
+                        .top(Pixels(5.0))
+                        .color(CHAOS_COLOR)
+                        .font_size(13.0);
+                })
+                .height(Pixels(30.0))
+                .child_left(Pixels(15.0))
+                .child_right(Pixels(15.0))
+                .width(Percentage(95.0))
+                .background_color(PANEL_BG)
+                .border_color(BORDER_COLOR)
+                .border_width(Pixels(1.0))
+                .border_radius(Pixels(4.0))
+                .bottom(Pixels(8.0));
+
                 // OUTPUT METER with improved styling
                 VStack::new(cx, |cx| {
                     Label::new(cx, "OUTPUT LEVEL")
@@ -188,7 +214,7 @@ pub(crate) fn create(
             })
             .child_top(Pixels(0.0))
             .width(Percentage(100.0))
-            .height(Pixels(170.0)); // Increased height for the new slider
+            .height(Pixels(210.0)); // Increased height for the new chaos slider
             
             // Footer with version info
             HStack::new(cx, |cx| {
