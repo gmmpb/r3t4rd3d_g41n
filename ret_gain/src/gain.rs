@@ -9,7 +9,6 @@ use crate::fractal::FractalMagic;
 use crate::chaos::ChaosAttractor;
 
 /// The time it takes for the peak meter to decay by 12 dB after switching to complete silence.
-const PEAK_METER_DECAY_MS: f64 = 300.0; // Slower decay for a simpler meter
 
 /// This is mostly identical to the gain example, minus some fluff, and with a GUI.
 pub struct Gain {
@@ -162,7 +161,7 @@ impl Plugin for Gain {
     fn initialize(
         &mut self,
         _audio_io_layout: &AudioIOLayout,
-        buffer_config: &BufferConfig,
+        _buffer_config: &BufferConfig,
         _context: &mut impl InitContext<Self>,
     ) -> bool {
         // Much faster decay for the meter - 0.5 factor for quicker fallback

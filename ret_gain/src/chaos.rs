@@ -1,4 +1,3 @@
-use nih_plug::prelude::*;
 use std::f32::consts::PI;
 
 /// A chaotic audio effect based on the Lorenz attractor and other chaotic systems
