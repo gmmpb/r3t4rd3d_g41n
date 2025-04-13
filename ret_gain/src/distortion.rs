@@ -11,6 +11,7 @@ impl Distortion {
     pub fn new(drive: f32) -> Self {
         Self { drive }
     }
+
     
     /// Process a single sample through the distortion algorithm
     pub fn process(&self, sample: f32) -> f32 {

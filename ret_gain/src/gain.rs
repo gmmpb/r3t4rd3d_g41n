@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use crate::editor;
 use crate::distortion::Distortion;
+use crate::fractal::FractalMagic;
 
 /// The time it takes for the peak meter to decay by 12 dB after switching to complete silence.
 const PEAK_METER_DECAY_MS: f64 = 150.0;
@@ -21,7 +22,8 @@ pub struct Gain {
     ///
     /// This is stored as voltage gain.
     peak_meter: Arc<AtomicF32>,
-    distortion: Distortion, // Add the distortion processor
+    distortion: Distortion, // The distortion processor
+    fractal_magic: FractalMagic, // Add the fractal magic processor
 }
 
 #[derive(Params)]
@@ -35,7 +37,10 @@ pub struct GainParams {
     pub gain: FloatParam,
     
     #[id = "drive"]
-    pub drive: FloatParam, // Add the drive parameter
+    pub drive: FloatParam, // The drive parameter
+    
+    #[id = "magic"]
+    pub magic: FloatParam, // Add the magic parameter
 }
 
 impl Default for Gain {
@@ -46,6 +51,7 @@ impl Default for Gain {
             peak_meter_decay_weight: 1.0,
             peak_meter: Arc::new(AtomicF32::new(util::MINUS_INFINITY_DB)),
             distortion: Distortion::new(1.0), // Initialize with no distortion
+            fractal_magic: FractalMagic::new(0.0), // Initialize with no fractal magic
         }
     }
 }
@@ -81,6 +87,18 @@ impl Default for GainParams {
             .with_smoother(SmoothingStyle::Logarithmic(50.0))
             .with_unit("x")
             .with_value_to_string(formatters::v2s_f32_rounded(2)),
+            
+            magic: FloatParam::new(
+                "Magic One",
+                0.0, // Default value (no effect)
+                FloatRange::Linear {
+                    min: 0.0,    // No effect
+                    max: 1.0,    // Full effect
+                },
+            )
+            .with_smoother(SmoothingStyle::Logarithmic(50.0))
+            .with_unit("")
+            .with_value_to_string(formatters::v2s_f32_percentage(2)),
         }
     }
 }
@@ -142,8 +160,11 @@ impl Plugin for Gain {
         &mut self,
         buffer: &mut Buffer,
         _aux: &mut AuxiliaryBuffers,
-        _context: &mut impl ProcessContext<Self>,
+        context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
+        // Update the fractal magic sample rate
+        self.fractal_magic.set_sample_rate(context.transport().sample_rate as f32);
+        
         for channel_samples in buffer.iter_samples() {
             let mut amplitude = 0.0;
             let num_samples = channel_samples.len();
@@ -151,15 +172,22 @@ impl Plugin for Gain {
             // Get the smoothed parameter values
             let gain = self.params.gain.smoothed.next();
             let drive = self.params.drive.smoothed.next();
+            let magic = self.params.magic.smoothed.next();
             
             // Update the distortion with the current drive value
             self.distortion = Distortion::new(drive);
+            
+            // Update the fractal magic with the current magic amount
+            self.fractal_magic = FractalMagic::new(magic);
             
             for sample in channel_samples {
                 // First apply the distortion
                 *sample = self.distortion.process(*sample);
                 
-                // Then apply the gain
+                // Then apply the fractal magic effect
+                *sample = self.fractal_magic.process(*sample);
+                
+                // Finally apply the gain
                 *sample *= gain;
                 
                 amplitude += *sample;
