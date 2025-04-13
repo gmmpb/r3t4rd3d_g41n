@@ -1,6 +1,6 @@
 
 [workspace]
 members = [
-  "aaa_mark_vst",
+  "ret_gain",
   "xtask"
 ]

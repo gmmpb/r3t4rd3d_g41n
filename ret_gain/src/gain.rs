@@ -4,6 +4,7 @@ use nih_plug_vizia::ViziaState;
 use std::sync::Arc;
 
 use crate::editor;
+use crate::distortion::Distortion;
 
 /// The time it takes for the peak meter to decay by 12 dB after switching to complete silence.
 const PEAK_METER_DECAY_MS: f64 = 150.0;
@@ -20,6 +21,7 @@ pub struct Gain {
     ///
     /// This is stored as voltage gain.
     peak_meter: Arc<AtomicF32>,
+    distortion: Distortion, // Add the distortion processor
 }
 
 #[derive(Params)]
@@ -31,6 +33,9 @@ pub struct GainParams {
 
     #[id = "gain"]
     pub gain: FloatParam,
+    
+    #[id = "drive"]
+    pub drive: FloatParam, // Add the drive parameter
 }
 
 impl Default for Gain {
@@ -40,6 +45,7 @@ impl Default for Gain {
 
             peak_meter_decay_weight: 1.0,
             peak_meter: Arc::new(AtomicF32::new(util::MINUS_INFINITY_DB)),
+            distortion: Distortion::new(1.0), // Initialize with no distortion
         }
     }
 }
@@ -62,14 +68,27 @@ impl Default for GainParams {
             .with_unit(" dB")
             .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
             .with_string_to_value(formatters::s2v_f32_gain_to_db()),
+            
+            drive: FloatParam::new(
+                "Drive",
+                1.0, // Default value (no distortion)
+                FloatRange::Skewed {
+                    min: 1.0,    // No distortion
+                    max: 50.0,   // Maximum distortion
+                    factor: 0.5, // Skew towards lower values for more precise control
+                },
+            )
+            .with_smoother(SmoothingStyle::Logarithmic(50.0))
+            .with_unit("x")
+            .with_value_to_string(formatters::v2s_f32_rounded(2)),
         }
     }
 }
 
 impl Plugin for Gain {
-    const NAME: &'static str = "Voidlab - R3T4RD3D G41N";
-    const VENDOR: &'static str = "Voidlab - weblabstudio.hu";
-    const URL: &'static str = "https://youtu.be/dQw4w9WgXcQ";
+    const NAME: &'static str = "Weblab Studio - R3T4RD3D G41N";
+    const VENDOR: &'static str = "Weblab Studio - weblabstudio.hu";
+    const URL: &'static str = "";
     const EMAIL: &'static str = "hello@weblabstudio.hu";
 
     const VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -129,9 +148,20 @@ impl Plugin for Gain {
             let mut amplitude = 0.0;
             let num_samples = channel_samples.len();
 
+            // Get the smoothed parameter values
             let gain = self.params.gain.smoothed.next();
+            let drive = self.params.drive.smoothed.next();
+            
+            // Update the distortion with the current drive value
+            self.distortion = Distortion::new(drive);
+            
             for sample in channel_samples {
+                // First apply the distortion
+                *sample = self.distortion.process(*sample);
+                
+                // Then apply the gain
                 *sample *= gain;
+                
                 amplitude += *sample;
             }
 
