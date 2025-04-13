@@ -7,7 +7,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::gain::GainParams;
+use crate::plugin::RetardedGainParams;
 
 // More refined color palette - professional but still distinctive
 const BACKGROUND_COLOR: Color = Color::rgb(0x18, 0x18, 0x1E); // Dark background with slight blue tint
@@ -29,7 +29,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Lens)]
 struct Data {
-    params: Arc<GainParams>,
+    params: Arc<RetardedGainParams>,
     peak_meter: Arc<AtomicF32>,
 }
 
@@ -41,7 +41,7 @@ pub(crate) fn default_state() -> Arc<ViziaState> {
 }
 
 pub(crate) fn create(
-    params: Arc<GainParams>,
+    params: Arc<RetardedGainParams>,
     peak_meter: Arc<AtomicF32>,
     editor_state: Arc<ViziaState>,
 ) -> Option<Box<dyn Editor>> {
